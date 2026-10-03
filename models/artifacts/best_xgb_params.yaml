@@ -1,0 +1,14 @@
+best_log_loss: 0.1388150304555893
+colsample_bytree: 0.5827682615040224
+enable_categorical: true
+eval_metric: logloss
+gamma: 7.073702489270826e-08
+learning_rate: 0.011926324174062874
+max_depth: 10
+min_child_weight: 20
+objective: binary:logistic
+random_state: 42
+reg_alpha: 0.014391207615728067
+reg_lambda: 9.148975058772307e-05
+subsample: 0.9041986740582306
+tree_method: hist

@@ -1,0 +1,12 @@
+paths:
+  user_log_train: data/processed/user_comprehensive_features_train.parquet
+  user_log_test: data/processed/user_comprehensive_features_test.csv
+  transaction_train: data/raw/transactions.csv
+  transaction_v2: data/raw/transactions_v2.csv
+  members: data/raw/members_v3.csv
+  train_dataset: data/processed/train_df.parquet
+  train_processed: data/processed/train_df_processed.parquet
+  targets: data/processed/train_v2_purified.csv
+  test_dataset: data/processed/test_df.parquet
+  test_targets: data/raw/sample_submission_v2.csv
+  test_transaction: data/raw/transaction_test.parquet

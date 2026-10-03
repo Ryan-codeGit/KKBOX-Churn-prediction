@@ -1,0 +1,156 @@
+import gc
+import os
+import yaml
+import numpy as np
+import pandas as pd
+import lightgbm as lgb
+import optuna
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import log_loss
+
+optuna.logging.set_verbosity(optuna.logging.INFO)
+
+
+def load_data_and_features(
+    config_path='config.yaml',
+    feature_manifest_path='models/artifacts/optimized_dropped_features.yaml',
+):
+    print(f"Loading configuration from '{config_path}'...")
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+
+    if 'paths' in config and 'train_processed' in config['paths']:
+        train_path = config['paths']['train_processed']
+    elif 'train_processed' in config:
+        train_path = config['train_processed']
+    else:
+        raise KeyError("Could not find 'train_processed' in config.yaml")
+
+    print(f"Loading engineered dataset from: {train_path}")
+    df = pd.read_parquet(train_path)
+
+    target_col = 'is_churn'
+    if target_col not in df.columns:
+        raise KeyError(f"Target column '{target_col}' not found in dataset.")
+
+    print(f"Loading optimized features from: {feature_manifest_path}")
+    with open(feature_manifest_path, 'r') as f:
+        feature_manifest = yaml.safe_load(f)
+    selected_features = feature_manifest['selected_features']
+
+    # Enforce categorical dtypes
+    cat_cols = ['city', 'registered_via', 'gender', 'payment_method_mode']
+    for col in cat_cols:
+        if col in df.columns:
+            df[col] = df[col].astype('category')
+
+    selected_features = [f for f in selected_features if f in df.columns]
+
+    return df, selected_features, target_col, cat_cols
+
+
+def objective(trial, X_tr, y_tr, X_val, y_val, active_cats):
+    params = {
+        'objective': 'binary',
+        'metric': 'binary_logloss',
+        'boosting_type': 'gbdt',
+        'verbosity': -1,
+        'random_state': 42,
+        'n_jobs': -1,
+        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.15, log=True),
+        'num_leaves': trial.suggest_int('num_leaves', 15, 127),
+        'max_depth': trial.suggest_int('max_depth', 3, 12),
+        'min_child_samples': trial.suggest_int('min_child_samples', 10, 100),
+        'subsample': trial.suggest_float('subsample', 0.5, 1.0),
+        'subsample_freq': trial.suggest_int('subsample_freq', 1, 7),
+        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.4, 1.0),
+        'reg_alpha': trial.suggest_float('reg_alpha', 1e-8, 10.0, log=True),
+        'reg_lambda': trial.suggest_float('reg_lambda', 1e-8, 10.0, log=True),
+    }
+
+    train_data = lgb.Dataset(X_tr, label=y_tr, categorical_feature=active_cats, free_raw_data=False)
+    val_data = lgb.Dataset(X_val, label=y_val, reference=train_data, categorical_feature=active_cats, free_raw_data=False)
+
+    model = lgb.train(
+        params,
+        train_data,
+        num_boost_round=1000,
+        valid_sets=[val_data],
+        callbacks=[
+            lgb.early_stopping(stopping_rounds=50, verbose=False),
+            optuna.integration.LightGBMPruningCallback(trial, 'binary_logloss'),
+        ],
+    )
+
+    val_preds = model.predict(X_val)
+    loss = log_loss(y_val, val_preds)
+    return loss
+
+
+def run_optuna_tuning(n_trials=50):
+    print("==================================================")
+    print("=== STARTING OPTUNA LIGHTGBM HYPERPARAMETER TUNER ===")
+    print("==================================================\n")
+
+    df, selected_features, target_col, cat_cols = load_data_and_features()
+
+    active_cats = [c for c in cat_cols if c in selected_features]
+
+    # Stratified Split
+    X_tr, X_val, y_tr, y_val = train_test_split(
+        df[selected_features],
+        df[target_col].astype(int),
+        test_size=0.20,
+        random_state=42,
+        stratify=df[target_col].astype(int)
+    )
+
+    del df
+    gc.collect()
+
+    print(f"\nDataset Configuration:")
+    print(f"Features: {len(selected_features)}")
+    print(f"Train set: {len(X_tr):,} rows | Validation set: {len(X_val):,} rows")
+    print(f"Running Optuna tuning across {n_trials} trials...\n")
+
+    study = optuna.create_study(
+        direction='minimize',
+        sampler=optuna.samplers.TPESampler(seed=42),
+        pruner=optuna.pruners.MedianPruner(n_warmup_steps=10),
+    )
+
+    study.optimize(
+        lambda trial: objective(trial, X_tr, y_tr, X_val, y_val, active_cats),
+        n_trials=n_trials,
+        show_progress_bar=True,
+    )
+
+    print("\n==================================================")
+    print("=== OPTUNA HYPERPARAMETER TUNING COMPLETE ===")
+    print("==================================================")
+    print(f"Best Validation Log Loss: {study.best_value:.5f}")
+    print("\nBest Hyperparameters Found:")
+    for key, val in study.best_params.items():
+        print(f"  {key:<20}: {val}")
+    print("==================================================")
+
+    os.makedirs('models/artifacts', exist_ok=True)
+    output_path = 'models/artifacts/best_lgbm_params.yaml'
+
+    best_config = study.best_params.copy()
+    best_config.update({
+        'objective': 'binary',
+        'metric': 'binary_logloss',
+        'boosting_type': 'gbdt',
+        'random_state': 42,
+        'best_log_loss': float(study.best_value),
+    })
+
+    with open(output_path, 'w') as f:
+        yaml.dump(best_config, f, default_flow_style=False)
+
+    print(f"\nBest hyperparameter set saved to '{output_path}'!")
+
+
+if __name__ == '__main__':
+    run_optuna_tuning(n_trials=50)

@@ -1,0 +1,70 @@
+# Python
+
+**pycache**/
+*.py[cod]
+*$py.class
+*.pyo
+
+# Virtual environments
+
+.venv/
+venv/
+env/
+ENV/
+
+# Jupyter
+
+.ipynb_checkpoints/
+
+# Local environment / secrets
+
+.env
+.env.*
+!.env.example
+
+# Raw competition data
+
+data/raw/*
+!data/raw/.gitkeep
+
+# Generated / processed datasets
+
+data/processed/*
+!data/processed/.gitkeep
+
+# Generated model binaries
+
+models/artifacts/*.pkl
+models/artifacts/*.joblib
+models/artifacts/*.cbm
+models/artifacts/*.bin
+
+# Generated model outputs
+
+models/artifacts/oof_predictions.csv
+submissions/submission.csv
+
+# OS files
+
+.DS_Store
+Thumbs.db
+
+# IDE / editor files
+
+.vscode/
+.idea/
+
+# Temporary files
+
+*.tmp
+*.temp
+*.log
+
+# Large local exports
+
+*.parquet
+*.feather
+*.h5
+*.hdf5
+*.pickle
+*.pkl

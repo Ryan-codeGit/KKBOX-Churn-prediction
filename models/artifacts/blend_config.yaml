@@ -1,0 +1,3 @@
+lgb_weight: 0.5
+oof_log_loss: 0.13861391437121212
+xgb_weight: 0.5

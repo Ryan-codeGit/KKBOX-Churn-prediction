@@ -1,0 +1,14 @@
+best_log_loss: 0.13883642265525206
+boosting_type: gbdt
+colsample_bytree: 0.5756281504641428
+learning_rate: 0.047202506621120965
+max_depth: 9
+metric: binary_logloss
+min_child_samples: 90
+num_leaves: 92
+objective: binary
+random_state: 42
+reg_alpha: 0.011908587394227411
+reg_lambda: 1.059177069082075e-08
+subsample: 0.7596911828950871
+subsample_freq: 6
