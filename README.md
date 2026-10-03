@@ -15,7 +15,6 @@ The final solution uses **XGBoost + LightGBM**, with engineered user-level featu
 | Public leaderboard  |                      **0.117** |
 | Private leaderboard |                      **0.116** |
 | Final ensemble      | **50% LightGBM + 50% XGBoost** |
-| OOF blend log loss  |                    **0.13861** |
 
 The competition evaluates predicted churn probabilities using **Log Loss**.
 
@@ -337,7 +336,7 @@ random_state=42
 Each fold produces validation predictions that are stored as OOF predictions.
 
 The OOF predictions are generated locally during the ensemble stage and are not included in the repository because of their size.
-
+The final 50/50 LightGBM–XGBoost blend achieved an OOF log loss of 0.13861 on the internal 5-fold validation setup.
 ---
 
 ## Final Models
